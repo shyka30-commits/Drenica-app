@@ -1,121 +1,134 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-logo">D</div>
+          <div>
+            <h1>DRENICA</h1>
+            <span>Administrimi</span>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+        <nav className="menu">
+          <button className="menu-item active">🏠 Dashboard</button>
+          <button className="menu-item">👥 Anëtarët</button>
+          <button className="menu-item">💳 Pagesat</button>
+          <button className="menu-item">📜 Certifikatat</button>
+          <button className="menu-item">🧾 Faturat</button>
+          <button className="menu-item">📊 Raportet</button>
+          <button className="menu-item">🎣 Garat & Aktivitetet</button>
+          <button className="menu-item">📁 Dokumentet</button>
+        </nav>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        <div className="sidebar-bottom">
+          <button className="menu-item">⚙️ Cilësimet</button>
+          <button className="menu-item">🚪 Dil</button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      </aside>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <main className="main">
+        <header className="header">
+          <div>
+            <h2>Dashboard</h2>
+            <p>Mirë se vini në sistemin e Shoqatës DRENICA.</p>
+          </div>
+
+          <div className="user">
+            <div className="avatar">A</div>
+            <div>
+              <strong>Administrator</strong>
+              <span>Administrator</span>
+            </div>
+          </div>
+        </header>
+
+        <section className="content">
+          <div className="welcome">
+            <div>
+              <h3>Shoqata e Peshkatarëve Sportiv Rekreativ "DRENICA"</h3>
+              <p>
+                Menaxho anëtarët, pagesat, certifikatat, raportet dhe
+                aktivitetet e shoqatës nga një vend.
+              </p>
+            </div>
+
+            <button className="primary-button">+ Regjistro anëtar</button>
+          </div>
+
+          <div className="stats">
+            <div className="stat-card">
+              <span>Anëtarë aktivë</span>
+              <strong>0</strong>
+              <small>Total në sistem</small>
+            </div>
+
+            <div className="stat-card">
+              <span>Pagesa</span>
+              <strong>0 €</strong>
+              <small>Të hyra nga anëtarësimet</small>
+            </div>
+
+            <div className="stat-card">
+              <span>Certifikata</span>
+              <strong>0</strong>
+              <small>20 € për certifikatë</small>
+            </div>
+
+            <div className="stat-card">
+              <span>Të hyra totale</span>
+              <strong>0 €</strong>
+              <small>Anëtarësime + certifikata</small>
+            </div>
+          </div>
+
+          <div className="dashboard-grid">
+            <section className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Aktivitetet e fundit</h3>
+                  <p>Veprimet e fundit në sistem</p>
+                </div>
+              </div>
+
+              <div className="empty-state">
+                <div className="empty-icon">📋</div>
+                <strong>Nuk ka aktivitete ende</strong>
+                <span>Aktivitetet e administratorëve do të shfaqen këtu.</span>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Përmbledhje</h3>
+                  <p>Gjendja e shoqatës</p>
+                </div>
+              </div>
+
+              <div className="summary">
+                <div>
+                  <span>Certifikata këtë vit</span>
+                  <strong>0</strong>
+                </div>
+
+                <div>
+                  <span>Pagesa këtë vit</span>
+                  <strong>0 €</strong>
+                </div>
+
+                <div>
+                  <span>Gara / aktivitete</span>
+                  <strong>0</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
   )
 }
 
