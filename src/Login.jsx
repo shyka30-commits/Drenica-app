@@ -41,8 +41,14 @@ function Login({ onLogin }) {
     try {
       const { data, error } = await supabase
         .from('app_settings')
-        .select('username, password')
-        .eq('username', username)
+        .select(`
+          id,
+          username,
+          password,
+          organization_id,
+          role
+        `)
+        .eq('username', username.trim())
         .limit(1)
 
       if (error) {
@@ -65,16 +71,66 @@ function Login({ onLogin }) {
 
       if (
         account &&
-        username === account.username &&
+        username.trim() === account.username &&
         password === account.password
       ) {
+        let organization = null
+
+        if (account.organization_id) {
+          const {
+            data: organizationData,
+            error: organizationError,
+          } = await supabase
+            .from('organizations')
+            .select('id, name, slug')
+            .eq(
+              'id',
+              account.organization_id
+            )
+            .limit(1)
+
+          if (organizationError) {
+            console.error(
+              'Gabim te shoqata:',
+              organizationError
+            )
+          } else if (
+            organizationData &&
+            organizationData.length > 0
+          ) {
+            organization =
+              organizationData[0]
+          }
+        }
+
+        const sessionUser = {
+          id: account.id,
+          username: account.username,
+          role: account.role || 'admin',
+          organization_id:
+            account.organization_id || null,
+          organization: organization
+            ? {
+                id: organization.id,
+                name: organization.name,
+                slug: organization.slug,
+              }
+            : null,
+        }
+
         localStorage.setItem(
           'drenica_logged_in',
           'true'
         )
 
+        localStorage.setItem(
+          'drenica_user',
+          JSON.stringify(sessionUser)
+        )
+
         setError('')
-        onLogin()
+
+        onLogin(sessionUser)
       } else {
         setError(
           'Përdoruesi ose fjalëkalimi është gabim.'
