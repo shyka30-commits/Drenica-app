@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { supabase } from './utils/supabase'
 
 const SETTINGS_KEY = 'drenica_settings'
 
@@ -16,26 +17,76 @@ const defaultSettings = {
 }
 
 function Settings() {
-  const [settings, setSettings] = useState(defaultSettings)
-  const [saved, setSaved] = useState(false)
+  const [settings, setSettings] =
+    useState(defaultSettings)
+
+  const [saved, setSaved] =
+    useState(false)
+
+  const [savingLogin, setSavingLogin] =
+    useState(false)
 
   useEffect(() => {
-    const savedSettings =
-      localStorage.getItem(SETTINGS_KEY)
+    const loadSettings = async () => {
+      let localSettings = defaultSettings
 
-    if (savedSettings) {
+      const savedSettings =
+        localStorage.getItem(SETTINGS_KEY)
+
+      if (savedSettings) {
+        try {
+          localSettings = {
+            ...defaultSettings,
+            ...JSON.parse(savedSettings),
+          }
+        } catch (error) {
+          console.error(
+            'Gabim gjatë leximit të cilësimeve:',
+            error
+          )
+        }
+      }
+
       try {
-        setSettings({
-          ...defaultSettings,
-          ...JSON.parse(savedSettings),
-        })
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('username, password')
+          .limit(1)
+
+        if (error) {
+          console.error(
+            'Gabim gjatë leximit të Login-it nga Supabase:',
+            error
+          )
+
+          setSettings(localSettings)
+          return
+        }
+
+        if (data && data.length > 0) {
+          localSettings = {
+            ...localSettings,
+            username:
+              data[0].username ||
+              localSettings.username,
+            password:
+              data[0].password ||
+              localSettings.password,
+          }
+        }
+
+        setSettings(localSettings)
       } catch (error) {
         console.error(
-          'Gabim gjatë leximit të cilësimeve:',
+          'Gabim gjatë ngarkimit të cilësimeve:',
           error
         )
+
+        setSettings(localSettings)
       }
     }
+
+    loadSettings()
   }, [])
 
   const handleChange = (e) => {
@@ -49,19 +100,128 @@ function Settings() {
     setSaved(false)
   }
 
-  const handleSave = (e) => {
+  const saveLoginToSupabase = async () => {
+    const username =
+      settings.username.trim()
+
+    const password =
+      settings.password
+
+    if (!username) {
+      throw new Error(
+        'Username nuk mund të jetë bosh.'
+      )
+    }
+
+    if (!password) {
+      throw new Error(
+        'Password nuk mund të jetë bosh.'
+      )
+    }
+
+    const { data: existing, error: findError } =
+      await supabase
+        .from('app_settings')
+        .select('id')
+        .limit(1)
+
+    if (findError) {
+      throw findError
+    }
+
+    if (existing && existing.length > 0) {
+      const { error: updateError } =
+        await supabase
+          .from('app_settings')
+          .update({
+            username,
+            password,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq('id', existing[0].id)
+
+      if (updateError) {
+        throw updateError
+      }
+    } else {
+      const { error: insertError } =
+        await supabase
+          .from('app_settings')
+          .insert({
+            username,
+            password,
+          })
+
+      if (insertError) {
+        throw insertError
+      }
+    }
+  }
+
+  const handleSave = async (e) => {
     e.preventDefault()
 
-    localStorage.setItem(
-      SETTINGS_KEY,
-      JSON.stringify(settings)
-    )
+    setSaved(false)
 
-    setSaved(true)
+    try {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify(settings)
+      )
 
-    setTimeout(() => {
-      setSaved(false)
-    }, 3000)
+      await saveLoginToSupabase()
+
+      setSaved(true)
+
+      setTimeout(() => {
+        setSaved(false)
+      }, 3000)
+    } catch (error) {
+      console.error(
+        'Gabim gjatë ruajtjes:',
+        error
+      )
+
+      alert(
+        'Cilësimet lokale u ruajtën, por Login-i nuk u ruajt në Supabase.\n\nKontrollo lidhjen me Supabase.'
+      )
+    }
+  }
+
+  const handleSaveLogin = async (e) => {
+    e.preventDefault()
+
+    setSavingLogin(true)
+    setSaved(false)
+
+    try {
+      await saveLoginToSupabase()
+
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify(settings)
+      )
+
+      setSaved(true)
+
+      setTimeout(() => {
+        setSaved(false)
+      }, 3000)
+    } catch (error) {
+      console.error(
+        'Gabim gjatë ruajtjes së Login-it:',
+        error
+      )
+
+      alert(
+        'Login-i nuk u ruajt në Supabase.\n\n' +
+        (error?.message ||
+          'Kontrollo lidhjen me Supabase.')
+      )
+    } finally {
+      setSavingLogin(false)
+    }
   }
 
   const handleReset = () => {
@@ -90,36 +250,44 @@ function Settings() {
   const handleBackup = () => {
     const data = {
       settings: JSON.parse(
-        localStorage.getItem(SETTINGS_KEY) ||
+        localStorage.getItem(
+          SETTINGS_KEY
+        ) ||
           JSON.stringify(settings)
       ),
 
       members: JSON.parse(
-        localStorage.getItem('drenica_members') ||
-          '[]'
+        localStorage.getItem(
+          'drenica_members'
+        ) || '[]'
       ),
 
       payments: JSON.parse(
-        localStorage.getItem('drenica_payments') ||
-          '[]'
+        localStorage.getItem(
+          'drenica_payments'
+        ) || '[]'
       ),
 
       certificates: JSON.parse(
-        localStorage.getItem('drenica_certificates') ||
-          '[]'
+        localStorage.getItem(
+          'drenica_certificates'
+        ) || '[]'
       ),
 
       invoices: JSON.parse(
-        localStorage.getItem('drenica_invoices') ||
-          '[]'
+        localStorage.getItem(
+          'drenica_invoices'
+        ) || '[]'
       ),
 
       competitions: JSON.parse(
-        localStorage.getItem('drenica_competitions') ||
-          '[]'
+        localStorage.getItem(
+          'drenica_competitions'
+        ) || '[]'
       ),
 
-      exportedAt: new Date().toISOString(),
+      exportedAt:
+        new Date().toISOString(),
     }
 
     const blob = new Blob(
@@ -129,22 +297,28 @@ function Settings() {
       }
     )
 
-    const url = URL.createObjectURL(blob)
+    const url =
+      URL.createObjectURL(blob)
 
     const link =
       window.document.createElement('a')
 
     link.href = url
 
-    link.download = `drenica-backup-${new Date()
-      .toISOString()
-      .slice(0, 10)}.json`
+    link.download =
+      `drenica-backup-${new Date()
+        .toISOString()
+        .slice(0, 10)}.json`
 
-    window.document.body.appendChild(link)
+    window.document.body.appendChild(
+      link
+    )
 
     link.click()
 
-    window.document.body.removeChild(link)
+    window.document.body.removeChild(
+      link
+    )
 
     URL.revokeObjectURL(url)
   }
@@ -201,7 +375,9 @@ function Settings() {
               <input
                 type="text"
                 name="emriShoqates"
-                value={settings.emriShoqates}
+                value={
+                  settings.emriShoqates
+                }
                 onChange={handleChange}
               />
 
@@ -266,7 +442,6 @@ function Settings() {
                 value={settings.monedha}
                 onChange={handleChange}
               >
-
                 <option value="€">
                   Euro (€)
                 </option>
@@ -274,7 +449,6 @@ function Settings() {
                 <option value="$">
                   Dollar ($)
                 </option>
-
               </select>
 
             </div>
@@ -305,7 +479,9 @@ function Settings() {
               <input
                 type="text"
                 name="administrator"
-                value={settings.administrator}
+                value={
+                  settings.administrator
+                }
                 onChange={handleChange}
               />
 
@@ -344,7 +520,9 @@ function Settings() {
           🔐 Të dhënat e Login-it
         </h3>
 
-        <form onSubmit={handleSave}>
+        <form
+          onSubmit={handleSaveLogin}
+        >
 
           <div className="form-grid">
 
@@ -389,8 +567,11 @@ function Settings() {
             <button
               type="submit"
               className="primary-button"
+              disabled={savingLogin}
             >
-              🔐 Ruaj Login-in
+              {savingLogin
+                ? '⏳ Duke ruajtur...'
+                : '🔐 Ruaj Login-in'}
             </button>
 
           </div>
