@@ -6,11 +6,13 @@ function Members() {
   const [members, setMembers] = useState([])
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [organizationId, setOrganizationId] = useState(null)
 
   const currentYear = new Date().getFullYear()
 
-  const [selectedYear, setSelectedYear] =
-    useState(currentYear)
+  const [selectedYear, setSelectedYear] = useState(
+    currentYear
+  )
 
   const [form, setForm] = useState({
     emri: '',
@@ -43,14 +45,49 @@ function Members() {
     { name: 'FSK', price: 0 },
   ]
 
-  /* =====================================================
-     LOAD MEMBERS
-  ===================================================== */
+  // =====================================================
+  // LOAD ORGANIZATION
+  // =====================================================
 
-  const loadMembers = async () => {
+  const loadOrganization = async () => {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('slug', 'drenica')
+      .single()
+
+    if (error) {
+      console.error(
+        'Gabim gjatë marrjes së shoqatës:',
+        error
+      )
+
+      alert(
+        'Nuk u gjet shoqata DRENICA.\n\n' +
+          error.message
+      )
+
+      return null
+    }
+
+    setOrganizationId(data.id)
+
+    return data.id
+  }
+
+  // =====================================================
+  // LOAD MEMBERS
+  // =====================================================
+
+  const loadMembers = async (orgId) => {
+    if (!orgId) {
+      return
+    }
+
     const { data, error } = await supabase
       .from('members')
       .select('*')
+      .eq('organization_id', orgId)
       .order('created_at', {
         ascending: false,
       })
@@ -62,7 +99,8 @@ function Members() {
       )
 
       alert(
-        `Nuk u arritën të merren anëtarët nga databaza.\n\n${error.message}`
+        'Nuk u arritën të merren anëtarët nga databaza.\n\n' +
+          error.message
       )
 
       return
@@ -71,14 +109,19 @@ function Members() {
     setMembers(data || [])
   }
 
-  /* =====================================================
-     LOAD PAYMENTS
-  ===================================================== */
+  // =====================================================
+  // LOAD PAYMENTS
+  // =====================================================
 
-  const loadPayments = async () => {
+  const loadPayments = async (orgId) => {
+    if (!orgId) {
+      return
+    }
+
     const { data, error } = await supabase
       .from('payments')
       .select('*')
+      .eq('organization_id', orgId)
       .order('created_at', {
         ascending: false,
       })
@@ -95,18 +138,22 @@ function Members() {
     setPayments(data || [])
   }
 
-  /* =====================================================
-     INITIAL LOAD
-  ===================================================== */
+  // =====================================================
+  // INITIAL LOAD
+  // =====================================================
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
 
-      await Promise.all([
-        loadMembers(),
-        loadPayments(),
-      ])
+      const orgId = await loadOrganization()
+
+      if (orgId) {
+        await Promise.all([
+          loadMembers(orgId),
+          loadPayments(orgId),
+        ])
+      }
 
       setLoading(false)
     }
@@ -114,9 +161,9 @@ function Members() {
     loadData()
   }, [])
 
-  /* =====================================================
-     FORM CHANGE
-  ===================================================== */
+  // =====================================================
+  // FORM CHANGE
+  // =====================================================
 
   const handleChange = (e) => {
     const {
@@ -135,14 +182,13 @@ function Members() {
     }))
   }
 
-  /* =====================================================
-     CATEGORY PRICE
-  ===================================================== */
+  // =====================================================
+  // CATEGORY PRICE
+  // =====================================================
 
   const getCategoryPrice = (categoryName) => {
     const category = categories.find(
-      (item) =>
-        item.name === categoryName
+      (item) => item.name === categoryName
     )
 
     return category
@@ -150,12 +196,20 @@ function Members() {
       : 0
   }
 
-  /* =====================================================
-     SAVE MEMBER
-  ===================================================== */
+  // =====================================================
+  // SAVE MEMBER
+  // =====================================================
 
   const handleSave = async (e) => {
     e.preventDefault()
+
+    if (!organizationId) {
+      alert(
+        'Shoqata DRENICA nuk u gjet. Ju lutem provoni përsëri.'
+      )
+
+      return
+    }
 
     if (
       !form.emri.trim() ||
@@ -182,28 +236,17 @@ function Members() {
       getCategoryPrice(form.kategoria)
 
     const newMember = {
+      organization_id: organizationId,
       emri: form.emri.trim(),
-
-      mbiemri:
-        form.mbiemri.trim(),
-
-      nr_personal:
-        form.nrPersonal.trim(),
-
-      nr_librezes:
-        form.nrLibrezes.trim(),
-
+      mbiemri: form.mbiemri.trim(),
+      nr_personal: form.nrPersonal.trim(),
+      nr_librezes: form.nrLibrezes.trim(),
       telefoni:
         form.telefoni.trim() || null,
-
       adresa:
         form.adresa.trim() || null,
-
-      kategoria:
-        form.kategoria,
-
-      cmimi:
-        categoryPrice,
+      kategoria: form.kategoria,
+      cmimi: categoryPrice,
     }
 
     console.log(
@@ -211,9 +254,9 @@ function Members() {
       newMember
     )
 
-    /* ===================================================
-       SAVE MEMBER
-    =================================================== */
+    // ===================================================
+    // SAVE MEMBER
+    // ===================================================
 
     const {
       data: savedMember,
@@ -231,7 +274,9 @@ function Members() {
       )
 
       alert(
-        `Anëtari nuk u ruajt.\n\nGabimi nga Supabase:\n${memberError.message}`
+        'Anëtari nuk u ruajt.\n\n' +
+          'Gabimi nga Supabase:\n' +
+          memberError.message
       )
 
       return
@@ -242,36 +287,29 @@ function Members() {
       savedMember
     )
 
-    /* ===================================================
-       CREATE PAYMENT AUTOMATICALLY
-    =================================================== */
+    // ===================================================
+    // CREATE PAYMENT AUTOMATICALLY
+    // ===================================================
 
     if (form.kaPaguar) {
       const today = new Date()
 
       const newPayment = {
-        member_id:
-          savedMember.id,
-
+        organization_id: organizationId,
+        member_id: savedMember.id,
         member_name:
-          `${form.emri.trim()} ${form.mbiemri.trim()}`,
-
-        shuma:
-          categoryPrice,
-
-        data:
-          today
-            .toISOString()
-            .split('T')[0],
-
-        viti:
-          currentYear,
-
-        muaji:
-          null,
-
+          form.emri.trim() +
+          ' ' +
+          form.mbiemri.trim(),
+        shuma: categoryPrice,
+        data: today
+          .toISOString()
+          .split('T')[0],
+        viti: currentYear,
+        muaji: null,
         pershkrimi:
-          `Pagesa vjetore e anëtarësimit - ${currentYear}`,
+          'Pagesa vjetore e anëtarësimit - ' +
+          currentYear,
       }
 
       const {
@@ -287,21 +325,23 @@ function Members() {
         )
 
         alert(
-          `Anëtari u ruajt me sukses, por pagesa nuk u ruajt.\n\nGabimi:\n${paymentError.message}`
+          'Anëtari u ruajt me sukses, por pagesa nuk u ruajt.\n\n' +
+            'Gabimi:\n' +
+            paymentError.message
         )
       }
     }
 
-    /* ===================================================
-       RELOAD
-    =================================================== */
+    // ===================================================
+    // RELOAD
+    // ===================================================
 
-    await loadMembers()
-    await loadPayments()
+    await loadMembers(organizationId)
+    await loadPayments(organizationId)
 
-    /* ===================================================
-       RESET
-    =================================================== */
+    // ===================================================
+    // RESET
+    // ===================================================
 
     setForm({
       emri: '',
@@ -316,15 +356,16 @@ function Members() {
 
     setShowForm(false)
 
-    /* ===================================================
-       SUCCESS
-    =================================================== */
+    // ===================================================
+    // SUCCESS
+    // ===================================================
 
     if (form.kaPaguar) {
       alert(
-        `Anëtari u regjistrua me sukses!\n\nPagesa prej ${categoryPrice.toFixed(
-          2
-        )} € u regjistrua automatikisht.`
+        'Anëtari u regjistrua me sukses!\n\n' +
+          'Pagesa prej ' +
+          categoryPrice.toFixed(2) +
+          ' € u regjistrua automatikisht.'
       )
     } else {
       alert(
@@ -333,21 +374,20 @@ function Members() {
     }
   }
 
-  /* =====================================================
-     DELETE MEMBER
-  ===================================================== */
+  // =====================================================
+  // DELETE MEMBER
+  // =====================================================
 
   const handleDelete = async (id) => {
-    const confirmed =
-      window.confirm(
-        'A jeni të sigurt që dëshironi ta fshini këtë anëtar?'
-      )
+    const confirmed = window.confirm(
+      'A jeni të sigurt që dëshironi ta fshini këtë anëtar?'
+    )
 
     if (!confirmed) {
       return
     }
 
-    /* DELETE PAYMENTS */
+    // DELETE PAYMENTS
 
     const {
       error: paymentDeleteError,
@@ -355,6 +395,10 @@ function Members() {
       .from('payments')
       .delete()
       .eq('member_id', id)
+      .eq(
+        'organization_id',
+        organizationId
+      )
 
     if (paymentDeleteError) {
       console.error(
@@ -363,7 +407,7 @@ function Members() {
       )
     }
 
-    /* DELETE MEMBER */
+    // DELETE MEMBER
 
     const {
       error: memberDeleteError,
@@ -371,6 +415,10 @@ function Members() {
       .from('members')
       .delete()
       .eq('id', id)
+      .eq(
+        'organization_id',
+        organizationId
+      )
 
     if (memberDeleteError) {
       console.error(
@@ -379,104 +427,88 @@ function Members() {
       )
 
       alert(
-        `Anëtari nuk u fshi.\n\n${memberDeleteError.message}`
+        'Anëtari nuk u fshi.\n\n' +
+          memberDeleteError.message
       )
 
       return
     }
 
-    await loadMembers()
-    await loadPayments()
+    await loadMembers(organizationId)
+    await loadPayments(organizationId)
   }
 
-  /* =====================================================
-     FIND PAYMENT FOR YEAR
-  ===================================================== */
+  // =====================================================
+  // FIND PAYMENT FOR YEAR
+  // =====================================================
 
   const getPaymentForYear = (member) => {
-    return payments.find(
-      (payment) => {
-        const sameId =
-          String(
-            payment.member_id
-          ) ===
-          String(member.id)
+    return payments.find((payment) => {
+      const sameId =
+        String(payment.member_id) ===
+        String(member.id)
 
-        const paymentName =
-          String(
-            payment.member_name ||
-              ''
-          )
-            .trim()
-            .toLowerCase()
+      const paymentName = String(
+        payment.member_name || ''
+      )
+        .trim()
+        .toLowerCase()
 
-        const memberName =
-          `${member.emri} ${member.mbiemri}`
-            .trim()
-            .toLowerCase()
+      const memberName =
+        (
+          String(member.emri || '') +
+          ' ' +
+          String(member.mbiemri || '')
+        )
+          .trim()
+          .toLowerCase()
 
-        const sameName =
-          paymentName ===
-          memberName
+      const sameName =
+        paymentName === memberName
+
+      if (!sameId && !sameName) {
+        return false
+      }
+
+      if (
+        payment.viti !== null &&
+        payment.viti !== undefined
+      ) {
+        return (
+          Number(payment.viti) ===
+          Number(selectedYear)
+        )
+      }
+
+      if (payment.data) {
+        const paymentDate = new Date(
+          payment.data + 'T00:00:00'
+        )
 
         if (
-          !sameId &&
-          !sameName
+          isNaN(paymentDate.getTime())
         ) {
           return false
         }
 
-        if (
-          payment.viti !== null &&
-          payment.viti !== undefined
-        ) {
-          return (
-            Number(
-              payment.viti
-            ) ===
-            Number(
-              selectedYear
-            )
-          )
-        }
-
-        if (payment.data) {
-          const paymentDate =
-            new Date(
-              `${payment.data}T00:00:00`
-            )
-
-          if (
-            isNaN(
-              paymentDate.getTime()
-            )
-          ) {
-            return false
-          }
-
-          return (
-            paymentDate.getFullYear() ===
-            Number(
-              selectedYear
-            )
-          )
-        }
-
-        return false
+        return (
+          paymentDate.getFullYear() ===
+          Number(selectedYear)
+        )
       }
-    )
+
+      return false
+    })
   }
 
-  /* =====================================================
-     LOADING
-  ===================================================== */
+  // =====================================================
+  // LOADING
+  // =====================================================
 
   if (loading) {
     return (
       <div className="members-page">
-
         <div className="members-empty">
-
           <div className="empty-icon">
             ⏳
           </div>
@@ -489,16 +521,14 @@ function Members() {
             Duke marrë të dhënat nga
             databaza.
           </span>
-
         </div>
-
       </div>
     )
   }
 
-  /* =====================================================
-     PAGE
-  ===================================================== */
+  // =====================================================
+  // PAGE
+  // =====================================================
 
   return (
     <div className="members-page">
@@ -508,7 +538,6 @@ function Members() {
       <div className="members-header">
 
         <div>
-
           <h2>
             Anëtarët
           </h2>
@@ -517,7 +546,6 @@ function Members() {
             Menaxho të gjithë
             anëtarët e shoqatës.
           </p>
-
         </div>
 
         <button
@@ -534,16 +562,13 @@ function Members() {
       {/* FORM */}
 
       {showForm && (
-
         <div className="member-form">
 
           <h3>
             Regjistro anëtar të ri
           </h3>
 
-          <form
-            onSubmit={handleSave}
-          >
+          <form onSubmit={handleSave}>
 
             <div className="form-grid">
 
@@ -559,9 +584,7 @@ function Members() {
                   type="text"
                   name="emri"
                   value={form.emri}
-                  onChange={
-                    handleChange
-                  }
+                  onChange={handleChange}
                   placeholder="Shkruaj emrin"
                 />
 
@@ -578,12 +601,8 @@ function Members() {
                 <input
                   type="text"
                   name="mbiemri"
-                  value={
-                    form.mbiemri
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.mbiemri}
+                  onChange={handleChange}
                   placeholder="Shkruaj mbiemrin"
                 />
 
@@ -600,12 +619,8 @@ function Members() {
                 <input
                   type="text"
                   name="nrPersonal"
-                  value={
-                    form.nrPersonal
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.nrPersonal}
+                  onChange={handleChange}
                   placeholder="Shkruaj nr. personal"
                 />
 
@@ -622,12 +637,8 @@ function Members() {
                 <input
                   type="text"
                   name="nrLibrezes"
-                  value={
-                    form.nrLibrezes
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.nrLibrezes}
+                  onChange={handleChange}
                   placeholder="Shkruaj nr. e librezës"
                   required
                 />
@@ -645,12 +656,8 @@ function Members() {
                 <input
                   type="tel"
                   name="telefoni"
-                  value={
-                    form.telefoni
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.telefoni}
+                  onChange={handleChange}
                   placeholder="Shkruaj numrin e telefonit"
                 />
 
@@ -667,12 +674,8 @@ function Members() {
                 <input
                   type="text"
                   name="adresa"
-                  value={
-                    form.adresa
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.adresa}
+                  onChange={handleChange}
                   placeholder="Shkruaj adresën"
                 />
 
@@ -688,12 +691,8 @@ function Members() {
 
                 <select
                   name="kategoria"
-                  value={
-                    form.kategoria
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.kategoria}
+                  onChange={handleChange}
                 >
 
                   <option value="">
@@ -702,26 +701,13 @@ function Members() {
 
                   {categories.map(
                     (category) => (
-
                       <option
-                        key={
-                          category.name
-                        }
-                        value={
-                          category.name
-                        }
+                        key={category.name}
+                        value={category.name}
                       >
-
-                        {
-                          category.name
-                        }{' '}
-                        —{' '}
-                        {
-                          category.price
-                        } €
-
+                        {category.name} —{' '}
+                        {category.price} €
                       </option>
-
                     )
                   )}
 
@@ -734,7 +720,6 @@ function Members() {
             {/* PAYMENT */}
 
             {form.kategoria && (
-
               <div
                 style={{
                   marginTop: '18px',
@@ -745,15 +730,11 @@ function Members() {
               >
 
                 <strong>
-
                   Pagesa vjetore:{' '}
-
                   {getCategoryPrice(
                     form.kategoria
                   ).toFixed(2)}{' '}
-
                   €
-
                 </strong>
 
                 <div
@@ -774,21 +755,15 @@ function Members() {
                     <input
                       type="checkbox"
                       name="kaPaguar"
-                      checked={
-                        form.kaPaguar
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      checked={form.kaPaguar}
+                      onChange={handleChange}
                     />
 
                     <span>
-
                       Anëtari ka paguar
                       pagesën vjetore (
                       {currentYear}
                       )
-
                     </span>
 
                   </label>
@@ -796,7 +771,6 @@ function Members() {
                 </div>
 
               </div>
-
             )}
 
             {/* ACTIONS */}
@@ -825,7 +799,6 @@ function Members() {
           </form>
 
         </div>
-
       )}
 
       {/* MEMBERS LIST */}
@@ -857,14 +830,10 @@ function Members() {
             </label>
 
             <select
-              value={
-                selectedYear
-              }
+              value={selectedYear}
               onChange={(e) =>
                 setSelectedYear(
-                  Number(
-                    e.target.value
-                  )
+                  Number(e.target.value)
                 )
               }
             >
@@ -872,18 +841,14 @@ function Members() {
               {[
                 currentYear,
                 currentYear - 1,
-              ].map(
-                (year) => (
-
-                  <option
-                    key={year}
-                    value={year}
-                  >
-                    {year}
-                  </option>
-
-                )
-              )}
+              ].map((year) => (
+                <option
+                  key={year}
+                  value={year}
+                >
+                  {year}
+                </option>
+              ))}
 
             </select>
 
@@ -964,131 +929,100 @@ function Members() {
 
               <tbody>
 
-                {members.map(
-                  (member) => {
+                {members.map((member) => {
 
-                    const payment =
-                      getPaymentForYear(
-                        member
-                      )
-
-                    return (
-
-                      <tr
-                        key={
-                          member.id
-                        }
-                      >
-
-                        <td>
-
-                          <strong>
-                            {
-                              member.emri
-                            }{' '}
-                            {
-                              member.mbiemri
-                            }
-                          </strong>
-
-                        </td>
-
-                        <td>
-                          {
-                            member.nr_personal ||
-                            member.nrPersonal ||
-                            '-'
-                          }
-                        </td>
-
-                        <td>
-                          {
-                            member.nr_librezes ||
-                            member.nrLibrezes ||
-                            '-'
-                          }
-                        </td>
-
-                        <td>
-                          {
-                            member.telefoni ||
-                            '-'
-                          }
-                        </td>
-
-                        <td>
-                          {
-                            member.adresa ||
-                            '-'
-                          }
-                        </td>
-
-                        <td>
-                          {
-                            member.kategoria ||
-                            '-'
-                          }
-                        </td>
-
-                        <td>
-                          {getCategoryPrice(
-                            member.kategoria
-                          ).toFixed(2)}{' '}
-                          €
-                        </td>
-
-                        <td>
-
-                          {payment ? (
-
-                            <span className="payment-paid">
-
-                              ✅ Paguar{' '}
-
-                              {Number(
-                                payment.shuma ||
-                                  0
-                              ).toFixed(2)}{' '}
-                              €
-
-                            </span>
-
-                          ) : (
-
-                            <span className="payment-unpaid">
-
-                              ❌{' '}
-                              {
-                                selectedYear
-                              }{' '}
-                              – Pa paguar
-
-                            </span>
-
-                          )}
-
-                        </td>
-
-                        <td>
-
-                          <button
-                            className="delete-button"
-                            onClick={() =>
-                              handleDelete(
-                                member.id
-                              )
-                            }
-                          >
-                            Fshi
-                          </button>
-
-                        </td>
-
-                      </tr>
-
+                  const payment =
+                    getPaymentForYear(
+                      member
                     )
-                  }
-                )}
+
+                  return (
+                    <tr
+                      key={member.id}
+                    >
+
+                      <td>
+                        <strong>
+                          {member.emri}{' '}
+                          {member.mbiemri}
+                        </strong>
+                      </td>
+
+                      <td>
+                        {member.nr_personal ||
+                          member.nrPersonal ||
+                          '-'}
+                      </td>
+
+                      <td>
+                        {member.nr_librezes ||
+                          member.nrLibrezes ||
+                          '-'}
+                      </td>
+
+                      <td>
+                        {member.telefoni ||
+                          '-'}
+                      </td>
+
+                      <td>
+                        {member.adresa ||
+                          '-'}
+                      </td>
+
+                      <td>
+                        {member.kategoria ||
+                          '-'}
+                      </td>
+
+                      <td>
+                        {getCategoryPrice(
+                          member.kategoria
+                        ).toFixed(2)}{' '}
+                        €
+                      </td>
+
+                      <td>
+
+                        {payment ? (
+
+                          <span className="payment-paid">
+                            ✅ Paguar{' '}
+                            {Number(
+                              payment.shuma || 0
+                            ).toFixed(2)}{' '}
+                            €
+                          </span>
+
+                        ) : (
+
+                          <span className="payment-unpaid">
+                            ❌ {selectedYear} –
+                            Pa paguar
+                          </span>
+
+                        )}
+
+                      </td>
+
+                      <td>
+
+                        <button
+                          className="delete-button"
+                          onClick={() =>
+                            handleDelete(
+                              member.id
+                            )
+                          }
+                        >
+                          Fshi
+                        </button>
+
+                      </td>
+
+                    </tr>
+                  )
+                })}
 
               </tbody>
 
