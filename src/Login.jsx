@@ -1,58 +1,96 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import logo from './assets/logo.png'
-
-const SETTINGS_KEY = 'drenica_settings'
+import { supabase } from './utils/supabase'
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = (e) => {
-    e.preventDefault()
+  useEffect(() => {
+    const loadUsername = async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('username')
+        .limit(1)
 
-    const savedSettings =
-      localStorage.getItem(SETTINGS_KEY)
-
-    let settings = {
-      username: 'admin',
-      password: '1234',
-    }
-
-    if (savedSettings) {
-      try {
-        const parsedSettings =
-          JSON.parse(savedSettings)
-
-        settings = {
-          ...settings,
-          ...parsedSettings,
-        }
-      } catch (error) {
+      if (error) {
         console.error(
-          'Gabim gjatë leximit të login-it:',
+          'Gabim gjatë marrjes së username:',
           error
         )
+        return
+      }
+
+      if (data && data.length > 0) {
+        setUsername(data[0].username || '')
       }
     }
 
-    if (
-      username === settings.username &&
-      password === settings.password
-    ) {
-      setError('')
+    loadUsername()
+  }, [])
 
-      localStorage.setItem(
-        'drenica_logged_in',
-        'true'
+  const handleLogin = async (e) => {
+    e.preventDefault()
+
+    setError('')
+    setLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('username, password')
+        .eq('username', username)
+        .limit(1)
+
+      if (error) {
+        console.error(
+          'Gabim te login:',
+          error
+        )
+
+        setError(
+          'Gabim gjatë lidhjes me sistemin.'
+        )
+
+        return
+      }
+
+      const account =
+        data && data.length > 0
+          ? data[0]
+          : null
+
+      if (
+        account &&
+        username === account.username &&
+        password === account.password
+      ) {
+        localStorage.setItem(
+          'drenica_logged_in',
+          'true'
+        )
+
+        setError('')
+        onLogin()
+      } else {
+        setError(
+          'Përdoruesi ose fjalëkalimi është gabim.'
+        )
+      }
+    } catch (error) {
+      console.error(
+        'Gabim gjatë login-it:',
+        error
       )
 
-      onLogin()
-    } else {
       setError(
-        'Përdoruesi ose fjalëkalimi është gabim.'
+        'Ndodhi një gabim gjatë hyrjes.'
       )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -78,14 +116,12 @@ function Login({ onLogin }) {
             '0 15px 40px rgba(0,0,0,0.10)',
         }}
       >
-
         <div
           style={{
             textAlign: 'center',
             marginBottom: '30px',
           }}
         >
-
           <img
             src={logo}
             alt="DRENICA Logo"
@@ -115,17 +151,17 @@ function Login({ onLogin }) {
           >
             Administrimi
           </p>
-
         </div>
 
         <form onSubmit={handleLogin}>
+
+          {/* USERNAME */}
 
           <div
             style={{
               marginBottom: '18px',
             }}
           >
-
             <label
               style={{
                 display: 'block',
@@ -156,15 +192,15 @@ function Login({ onLogin }) {
                 fontSize: '15px',
               }}
             />
-
           </div>
+
+          {/* PASSWORD */}
 
           <div
             style={{
               marginBottom: '18px',
             }}
           >
-
             <label
               style={{
                 display: 'block',
@@ -181,7 +217,6 @@ function Login({ onLogin }) {
                 position: 'relative',
               }}
             >
-
               <input
                 type={
                   showPassword
@@ -231,10 +266,10 @@ function Login({ onLogin }) {
                   ? '🙈'
                   : '👁️'}
               </button>
-
             </div>
-
           </div>
+
+          {/* ERROR */}
 
           {error && (
             <div
@@ -252,8 +287,11 @@ function Login({ onLogin }) {
             </div>
           )}
 
+          {/* LOGIN BUTTON */}
+
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: '100%',
               padding: '14px',
@@ -263,10 +301,17 @@ function Login({ onLogin }) {
               color: '#fff',
               fontSize: '16px',
               fontWeight: '700',
-              cursor: 'pointer',
+              cursor: loading
+                ? 'not-allowed'
+                : 'pointer',
+              opacity: loading
+                ? 0.7
+                : 1,
             }}
           >
-            Hyr në sistem
+            {loading
+              ? 'Duke hyrë...'
+              : 'Hyr në sistem'}
           </button>
 
         </form>
@@ -283,7 +328,6 @@ function Login({ onLogin }) {
           <br />
           "DRENICA"
         </div>
-
       </div>
     </div>
   )
