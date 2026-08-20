@@ -7,6 +7,7 @@ function Members() {
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [organizationId, setOrganizationId] = useState(null)
+  const [organizationName, setOrganizationName] = useState('')
 
   const currentYear = new Date().getFullYear()
 
@@ -46,33 +47,88 @@ function Members() {
   ]
 
   // =====================================================
-  // LOAD ORGANIZATION
+  // LOAD ORGANIZATION FROM LOGGED-IN USER
   // =====================================================
 
   const loadOrganization = async () => {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('id')
-      .eq('slug', 'drenica')
-      .single()
+    try {
+      const savedUser = localStorage.getItem(
+        'drenica_user'
+      )
 
-    if (error) {
+      if (!savedUser) {
+        console.error(
+          'Nuk u gjet përdoruesi i kyçur.'
+        )
+
+        alert(
+          'Sesioni i përdoruesit nuk u gjet. Ju lutem hyni përsëri.'
+        )
+
+        return null
+      }
+
+      const currentUser =
+        JSON.parse(savedUser)
+
+      const orgId =
+        currentUser?.organization_id
+
+      if (!orgId) {
+        console.error(
+          'Përdoruesi nuk ka organization_id.'
+        )
+
+        alert(
+          'Llogaria nuk është e lidhur me asnjë shoqatë.'
+        )
+
+        return null
+      }
+
+      setOrganizationId(orgId)
+
+      // Merr emrin e shoqatës
+      const {
+        data: organization,
+        error: organizationError,
+      } = await supabase
+        .from('organizations')
+        .select('id, name, slug')
+        .eq('id', orgId)
+        .single()
+
+      if (organizationError) {
+        console.error(
+          'Gabim gjatë marrjes së shoqatës:',
+          organizationError
+        )
+
+        alert(
+          'Shoqata e llogarisë nuk u gjet.\n\n' +
+            organizationError.message
+        )
+
+        return null
+      }
+
+      setOrganizationName(
+        organization?.name || ''
+      )
+
+      return orgId
+    } catch (error) {
       console.error(
         'Gabim gjatë marrjes së shoqatës:',
         error
       )
 
       alert(
-        'Nuk u gjet shoqata DRENICA.\n\n' +
-          error.message
+        'Gabim gjatë marrjes së shoqatës.'
       )
 
       return null
     }
-
-    setOrganizationId(data.id)
-
-    return data.id
   }
 
   // =====================================================
@@ -84,7 +140,10 @@ function Members() {
       return
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from('members')
       .select('*')
       .eq('organization_id', orgId)
@@ -118,7 +177,10 @@ function Members() {
       return
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from('payments')
       .select('*')
       .eq('organization_id', orgId)
@@ -146,7 +208,8 @@ function Members() {
     const loadData = async () => {
       setLoading(true)
 
-      const orgId = await loadOrganization()
+      const orgId =
+        await loadOrganization()
 
       if (orgId) {
         await Promise.all([
@@ -186,9 +249,12 @@ function Members() {
   // CATEGORY PRICE
   // =====================================================
 
-  const getCategoryPrice = (categoryName) => {
+  const getCategoryPrice = (
+    categoryName
+  ) => {
     const category = categories.find(
-      (item) => item.name === categoryName
+      (item) =>
+        item.name === categoryName
     )
 
     return category
@@ -205,7 +271,7 @@ function Members() {
 
     if (!organizationId) {
       alert(
-        'Shoqata DRENICA nuk u gjet. Ju lutem provoni përsëri.'
+        'Shoqata nuk u gjet. Ju lutem provoni përsëri.'
       )
 
       return
@@ -233,19 +299,26 @@ function Members() {
     }
 
     const categoryPrice =
-      getCategoryPrice(form.kategoria)
+      getCategoryPrice(
+        form.kategoria
+      )
 
     const newMember = {
-      organization_id: organizationId,
+      organization_id:
+        organizationId,
       emri: form.emri.trim(),
-      mbiemri: form.mbiemri.trim(),
-      nr_personal: form.nrPersonal.trim(),
-      nr_librezes: form.nrLibrezes.trim(),
+      mbiemri:
+        form.mbiemri.trim(),
+      nr_personal:
+        form.nrPersonal.trim(),
+      nr_librezes:
+        form.nrLibrezes.trim(),
       telefoni:
         form.telefoni.trim() || null,
       adresa:
         form.adresa.trim() || null,
-      kategoria: form.kategoria,
+      kategoria:
+        form.kategoria,
       cmimi: categoryPrice,
     }
 
@@ -295,17 +368,21 @@ function Members() {
       const today = new Date()
 
       const newPayment = {
-        organization_id: organizationId,
-        member_id: savedMember.id,
+        organization_id:
+          organizationId,
+        member_id:
+          savedMember.id,
         member_name:
           form.emri.trim() +
           ' ' +
           form.mbiemri.trim(),
-        shuma: categoryPrice,
+        shuma:
+          categoryPrice,
         data: today
           .toISOString()
           .split('T')[0],
-        viti: currentYear,
+        viti:
+          currentYear,
         muaji: null,
         pershkrimi:
           'Pagesa vjetore e anëtarësimit - ' +
@@ -336,8 +413,13 @@ function Members() {
     // RELOAD
     // ===================================================
 
-    await loadMembers(organizationId)
-    await loadPayments(organizationId)
+    await loadMembers(
+      organizationId
+    )
+
+    await loadPayments(
+      organizationId
+    )
 
     // ===================================================
     // RESET
@@ -379,9 +461,10 @@ function Members() {
   // =====================================================
 
   const handleDelete = async (id) => {
-    const confirmed = window.confirm(
-      'A jeni të sigurt që dëshironi ta fshini këtë anëtar?'
-    )
+    const confirmed =
+      window.confirm(
+        'A jeni të sigurt që dëshironi ta fshini këtë anëtar?'
+      )
 
     if (!confirmed) {
       return
@@ -394,7 +477,10 @@ function Members() {
     } = await supabase
       .from('payments')
       .delete()
-      .eq('member_id', id)
+      .eq(
+        'member_id',
+        id
+      )
       .eq(
         'organization_id',
         organizationId
@@ -414,7 +500,10 @@ function Members() {
     } = await supabase
       .from('members')
       .delete()
-      .eq('id', id)
+      .eq(
+        'id',
+        id
+      )
       .eq(
         'organization_id',
         organizationId
@@ -434,71 +523,105 @@ function Members() {
       return
     }
 
-    await loadMembers(organizationId)
-    await loadPayments(organizationId)
+    await loadMembers(
+      organizationId
+    )
+
+    await loadPayments(
+      organizationId
+    )
   }
 
   // =====================================================
   // FIND PAYMENT FOR YEAR
   // =====================================================
 
-  const getPaymentForYear = (member) => {
-    return payments.find((payment) => {
-      const sameId =
-        String(payment.member_id) ===
-        String(member.id)
+  const getPaymentForYear = (
+    member
+  ) => {
+    return payments.find(
+      (payment) => {
+        const sameId =
+          String(
+            payment.member_id
+          ) ===
+          String(member.id)
 
-      const paymentName = String(
-        payment.member_name || ''
-      )
-        .trim()
-        .toLowerCase()
+        const paymentName =
+          String(
+            payment.member_name ||
+              ''
+          )
+            .trim()
+            .toLowerCase()
 
-      const memberName =
-        (
-          String(member.emri || '') +
-          ' ' +
-          String(member.mbiemri || '')
-        )
-          .trim()
-          .toLowerCase()
+        const memberName =
+          (
+            String(
+              member.emri || ''
+            ) +
+            ' ' +
+            String(
+              member.mbiemri ||
+                ''
+            )
+          )
+            .trim()
+            .toLowerCase()
 
-      const sameName =
-        paymentName === memberName
-
-      if (!sameId && !sameName) {
-        return false
-      }
-
-      if (
-        payment.viti !== null &&
-        payment.viti !== undefined
-      ) {
-        return (
-          Number(payment.viti) ===
-          Number(selectedYear)
-        )
-      }
-
-      if (payment.data) {
-        const paymentDate = new Date(
-          payment.data + 'T00:00:00'
-        )
+        const sameName =
+          paymentName ===
+          memberName
 
         if (
-          isNaN(paymentDate.getTime())
+          !sameId &&
+          !sameName
         ) {
           return false
         }
 
-        return (
-          paymentDate.getFullYear() ===
-          Number(selectedYear)
-        )
-      }
+        if (
+          payment.viti !==
+            null &&
+          payment.viti !==
+            undefined
+        ) {
+          return (
+            Number(
+              payment.viti
+            ) ===
+            Number(
+              selectedYear
+            )
+          )
+        }
 
-      return false
-    })
+        if (payment.data) {
+          const paymentDate =
+            new Date(
+              payment.data +
+                'T00:00:00'
+            )
+
+          if (
+            isNaN(
+              paymentDate.getTime()
+            )
+          ) {
+            return false
+          }
+
+          return (
+            paymentDate.getFullYear() ===
+            Number(
+              selectedYear
+            )
+          )
+        }
+
+        return false
+      }
+    )
   }
 
   // =====================================================
@@ -508,7 +631,9 @@ function Members() {
   if (loading) {
     return (
       <div className="members-page">
+
         <div className="members-empty">
+
           <div className="empty-icon">
             ⏳
           </div>
@@ -521,7 +646,9 @@ function Members() {
             Duke marrë të dhënat nga
             databaza.
           </span>
+
         </div>
+
       </div>
     )
   }
@@ -538,14 +665,18 @@ function Members() {
       <div className="members-header">
 
         <div>
+
           <h2>
             Anëtarët
           </h2>
 
           <p>
             Menaxho të gjithë
-            anëtarët e shoqatës.
+            anëtarët e{' '}
+            {organizationName ||
+              'shoqatës'}.
           </p>
+
         </div>
 
         <button
@@ -568,7 +699,9 @@ function Members() {
             Regjistro anëtar të ri
           </h3>
 
-          <form onSubmit={handleSave}>
+          <form
+            onSubmit={handleSave}
+          >
 
             <div className="form-grid">
 
@@ -584,7 +717,9 @@ function Members() {
                   type="text"
                   name="emri"
                   value={form.emri}
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Shkruaj emrin"
                 />
 
@@ -601,8 +736,12 @@ function Members() {
                 <input
                   type="text"
                   name="mbiemri"
-                  value={form.mbiemri}
-                  onChange={handleChange}
+                  value={
+                    form.mbiemri
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Shkruaj mbiemrin"
                 />
 
@@ -619,8 +758,12 @@ function Members() {
                 <input
                   type="text"
                   name="nrPersonal"
-                  value={form.nrPersonal}
-                  onChange={handleChange}
+                  value={
+                    form.nrPersonal
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Shkruaj nr. personal"
                 />
 
@@ -637,8 +780,12 @@ function Members() {
                 <input
                   type="text"
                   name="nrLibrezes"
-                  value={form.nrLibrezes}
-                  onChange={handleChange}
+                  value={
+                    form.nrLibrezes
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Shkruaj nr. e librezës"
                   required
                 />
@@ -656,8 +803,12 @@ function Members() {
                 <input
                   type="tel"
                   name="telefoni"
-                  value={form.telefoni}
-                  onChange={handleChange}
+                  value={
+                    form.telefoni
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Shkruaj numrin e telefonit"
                 />
 
@@ -674,8 +825,12 @@ function Members() {
                 <input
                   type="text"
                   name="adresa"
-                  value={form.adresa}
-                  onChange={handleChange}
+                  value={
+                    form.adresa
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Shkruaj adresën"
                 />
 
@@ -691,8 +846,12 @@ function Members() {
 
                 <select
                   name="kategoria"
-                  value={form.kategoria}
-                  onChange={handleChange}
+                  value={
+                    form.kategoria
+                  }
+                  onChange={
+                    handleChange
+                  }
                 >
 
                   <option value="">
@@ -700,13 +859,25 @@ function Members() {
                   </option>
 
                   {categories.map(
-                    (category) => (
+                    (
+                      category
+                    ) => (
                       <option
-                        key={category.name}
-                        value={category.name}
+                        key={
+                          category.name
+                        }
+                        value={
+                          category.name
+                        }
                       >
-                        {category.name} —{' '}
-                        {category.price} €
+                        {
+                          category.name
+                        }{' '}
+                        —{' '}
+                        {
+                          category.price
+                        }{' '}
+                        €
                       </option>
                     )
                   )}
@@ -722,10 +893,14 @@ function Members() {
             {form.kategoria && (
               <div
                 style={{
-                  marginTop: '18px',
-                  padding: '15px',
-                  borderRadius: '10px',
-                  background: '#f5f7fa',
+                  marginTop:
+                    '18px',
+                  padding:
+                    '15px',
+                  borderRadius:
+                    '10px',
+                  background:
+                    '#f5f7fa',
                 }}
               >
 
@@ -733,36 +908,48 @@ function Members() {
                   Pagesa vjetore:{' '}
                   {getCategoryPrice(
                     form.kategoria
-                  ).toFixed(2)}{' '}
+                  ).toFixed(
+                    2
+                  )}{' '}
                   €
                 </strong>
 
                 <div
                   style={{
-                    marginTop: '12px',
+                    marginTop:
+                      '12px',
                   }}
                 >
 
                   <label
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
+                      display:
+                        'flex',
+                      alignItems:
+                        'center',
                       gap: '10px',
-                      cursor: 'pointer',
+                      cursor:
+                        'pointer',
                     }}
                   >
 
                     <input
                       type="checkbox"
                       name="kaPaguar"
-                      checked={form.kaPaguar}
-                      onChange={handleChange}
+                      checked={
+                        form.kaPaguar
+                      }
+                      onChange={
+                        handleChange
+                      }
                     />
 
                     <span>
                       Anëtari ka paguar
                       pagesën vjetore (
-                      {currentYear}
+                      {
+                        currentYear
+                      }
                       )
                     </span>
 
@@ -781,7 +968,9 @@ function Members() {
                 type="button"
                 className="secondary-button"
                 onClick={() =>
-                  setShowForm(false)
+                  setShowForm(
+                    false
+                  )
                 }
               >
                 Mbyll
@@ -816,7 +1005,9 @@ function Members() {
             <p>
               Gjithsej:{' '}
               <strong>
-                {members.length}
+                {
+                  members.length
+                }
               </strong>{' '}
               anëtarë
             </p>
@@ -830,10 +1021,14 @@ function Members() {
             </label>
 
             <select
-              value={selectedYear}
+              value={
+                selectedYear
+              }
               onChange={(e) =>
                 setSelectedYear(
-                  Number(e.target.value)
+                  Number(
+                    e.target.value
+                  )
                 )
               }
             >
@@ -841,14 +1036,16 @@ function Members() {
               {[
                 currentYear,
                 currentYear - 1,
-              ].map((year) => (
-                <option
-                  key={year}
-                  value={year}
-                >
-                  {year}
-                </option>
-              ))}
+              ].map(
+                (year) => (
+                  <option
+                    key={year}
+                    value={year}
+                  >
+                    {year}
+                  </option>
+                )
+              )}
 
             </select>
 
@@ -856,7 +1053,8 @@ function Members() {
 
         </div>
 
-        {members.length === 0 ? (
+        {members.length ===
+        0 ? (
 
           <div className="members-empty">
 
@@ -916,7 +1114,9 @@ function Members() {
 
                   <th>
                     Pagesa -{' '}
-                    {selectedYear}
+                    {
+                      selectedYear
+                    }
                   </th>
 
                   <th>
@@ -929,100 +1129,126 @@ function Members() {
 
               <tbody>
 
-                {members.map((member) => {
+                {members.map(
+                  (member) => {
 
-                  const payment =
-                    getPaymentForYear(
-                      member
-                    )
+                    const payment =
+                      getPaymentForYear(
+                        member
+                      )
 
-                  return (
-                    <tr
-                      key={member.id}
-                    >
+                    return (
+                      <tr
+                        key={
+                          member.id
+                        }
+                      >
 
-                      <td>
-                        <strong>
-                          {member.emri}{' '}
-                          {member.mbiemri}
-                        </strong>
-                      </td>
+                        <td>
+                          <strong>
+                            {
+                              member.emri
+                            }{' '}
+                            {
+                              member.mbiemri
+                            }
+                          </strong>
+                        </td>
 
-                      <td>
-                        {member.nr_personal ||
-                          member.nrPersonal ||
-                          '-'}
-                      </td>
-
-                      <td>
-                        {member.nr_librezes ||
-                          member.nrLibrezes ||
-                          '-'}
-                      </td>
-
-                      <td>
-                        {member.telefoni ||
-                          '-'}
-                      </td>
-
-                      <td>
-                        {member.adresa ||
-                          '-'}
-                      </td>
-
-                      <td>
-                        {member.kategoria ||
-                          '-'}
-                      </td>
-
-                      <td>
-                        {getCategoryPrice(
-                          member.kategoria
-                        ).toFixed(2)}{' '}
-                        €
-                      </td>
-
-                      <td>
-
-                        {payment ? (
-
-                          <span className="payment-paid">
-                            ✅ Paguar{' '}
-                            {Number(
-                              payment.shuma || 0
-                            ).toFixed(2)}{' '}
-                            €
-                          </span>
-
-                        ) : (
-
-                          <span className="payment-unpaid">
-                            ❌ {selectedYear} –
-                            Pa paguar
-                          </span>
-
-                        )}
-
-                      </td>
-
-                      <td>
-
-                        <button
-                          className="delete-button"
-                          onClick={() =>
-                            handleDelete(
-                              member.id
-                            )
+                        <td>
+                          {
+                            member.nr_personal ||
+                              member.nrPersonal ||
+                              '-'
                           }
-                        >
-                          Fshi
-                        </button>
+                        </td>
 
-                      </td>
+                        <td>
+                          {
+                            member.nr_librezes ||
+                              member.nrLibrezes ||
+                              '-'
+                          }
+                        </td>
 
-                    </tr>
-                  )
-                })}
+                        <td>
+                          {
+                            member.telefoni ||
+                              '-'
+                          }
+                        </td>
+
+                        <td>
+                          {
+                            member.adresa ||
+                              '-'
+                          }
+                        </td>
+
+                        <td>
+                          {
+                            member.kategoria ||
+                              '-'
+                          }
+                        </td>
+
+                        <td>
+                          {getCategoryPrice(
+                            member.kategoria
+                          ).toFixed(
+                            2
+                          )}{' '}
+                          €
+                        </td>
+
+                        <td>
+
+                          {payment ? (
+
+                            <span className="payment-paid">
+                              ✅ Paguar{' '}
+                              {Number(
+                                payment.shuma ||
+                                  0
+                              ).toFixed(
+                                2
+                              )}{' '}
+                              €
+                            </span>
+
+                          ) : (
+
+                            <span className="payment-unpaid">
+                              ❌{' '}
+                              {
+                                selectedYear
+                              }{' '}
+                              – Pa paguar
+                            </span>
+
+                          )}
+
+                        </td>
+
+                        <td>
+
+                          <button
+                            className="delete-button"
+                            onClick={() =>
+                              handleDelete(
+                                member.id
+                              )
+                            }
+                          >
+                            Fshi
+                          </button>
+
+                        </td>
+
+                      </tr>
+                    )
+                  }
+                )}
 
               </tbody>
 
