@@ -7,7 +7,6 @@ function Members() {
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [organizationId, setOrganizationId] = useState(null)
-  const [organizationName, setOrganizationName] = useState('')
 
   const currentYear = new Date().getFullYear()
 
@@ -47,88 +46,115 @@ function Members() {
   ]
 
   // =====================================================
-  // LOAD ORGANIZATION FROM LOGGED-IN USER
+  // MERR PËRDORUESIN AKTUAL
+  // =====================================================
+
+  const getCurrentUser = () => {
+    const savedUser =
+      localStorage.getItem('drenica_user')
+
+    if (!savedUser) {
+      return null
+    }
+
+    try {
+      return JSON.parse(savedUser)
+    } catch (error) {
+      console.error(
+        'Gabim gjatë leximit të përdoruesit:',
+        error
+      )
+
+      return null
+    }
+  }
+
+  // =====================================================
+  // LOAD ORGANIZATION
   // =====================================================
 
   const loadOrganization = async () => {
-    try {
-      const savedUser = localStorage.getItem(
-        'drenica_user'
+    const currentUser = getCurrentUser()
+
+    if (!currentUser) {
+      console.error(
+        'Nuk u gjet përdoruesi aktual.'
       )
 
-      if (!savedUser) {
-        console.error(
-          'Nuk u gjet përdoruesi i kyçur.'
-        )
-
-        alert(
-          'Sesioni i përdoruesit nuk u gjet. Ju lutem hyni përsëri.'
-        )
-
-        return null
-      }
-
-      const currentUser =
-        JSON.parse(savedUser)
-
-      const orgId =
-        currentUser?.organization_id
-
-      if (!orgId) {
-        console.error(
-          'Përdoruesi nuk ka organization_id.'
-        )
-
-        alert(
-          'Llogaria nuk është e lidhur me asnjë shoqatë.'
-        )
-
-        return null
-      }
-
-      setOrganizationId(orgId)
-
-      // Merr emrin e shoqatës
-      const {
-        data: organization,
-        error: organizationError,
-      } = await supabase
-        .from('organizations')
-        .select('id, name, slug')
-        .eq('id', orgId)
-        .single()
-
-      if (organizationError) {
-        console.error(
-          'Gabim gjatë marrjes së shoqatës:',
-          organizationError
-        )
-
-        alert(
-          'Shoqata e llogarisë nuk u gjet.\n\n' +
-            organizationError.message
-        )
-
-        return null
-      }
-
-      setOrganizationName(
-        organization?.name || ''
+      alert(
+        'Sesioni i përdoruesit nuk u gjet. Ju lutem hyni përsëri.'
       )
 
-      return orgId
-    } catch (error) {
+      return null
+    }
+
+    /*
+     * ===================================================
+     * KËTU ËSHTË NDRYSHIMI KRYESOR
+     *
+     * Nuk përdorim më:
+     *
+     * .eq('slug', 'drenica')
+     *
+     * Tani përdorim organization_id të user-it.
+     * ===================================================
+     */
+
+    const orgId =
+      currentUser.organization_id
+
+    if (!orgId) {
+      console.error(
+        'Përdoruesi nuk ka organization_id:',
+        currentUser
+      )
+
+      alert(
+        'Kjo llogari nuk është e lidhur me asnjë shoqatë.'
+      )
+
+      return null
+    }
+
+    const {
+      data,
+      error,
+    } = await supabase
+      .from('organizations')
+      .select('id, name, slug')
+      .eq('id', orgId)
+      .single()
+
+    if (error) {
       console.error(
         'Gabim gjatë marrjes së shoqatës:',
         error
       )
 
       alert(
-        'Gabim gjatë marrjes së shoqatës.'
+        'Nuk u arrit të merret shoqata.\n\n' +
+          error.message
       )
 
       return null
     }
+
+    if (!data) {
+      alert(
+        'Shoqata e kësaj llogarie nuk u gjet.'
+      )
+
+      return null
+    }
+
+    setOrganizationId(data.id)
+
+    console.log(
+      'Shoqata aktive:',
+      data
+    )
+
+    return data.id
   }
 
   // =====================================================
@@ -252,10 +278,11 @@ function Members() {
   const getCategoryPrice = (
     categoryName
   ) => {
-    const category = categories.find(
-      (item) =>
-        item.name === categoryName
-    )
+    const category =
+      categories.find(
+        (item) =>
+          item.name === categoryName
+      )
 
     return category
       ? category.price
@@ -271,7 +298,7 @@ function Members() {
 
     if (!organizationId) {
       alert(
-        'Shoqata nuk u gjet. Ju lutem provoni përsëri.'
+        'Shoqata e përdoruesit nuk u gjet. Ju lutem hyni përsëri.'
       )
 
       return
@@ -314,12 +341,15 @@ function Members() {
       nr_librezes:
         form.nrLibrezes.trim(),
       telefoni:
-        form.telefoni.trim() || null,
+        form.telefoni.trim() ||
+        null,
       adresa:
-        form.adresa.trim() || null,
+        form.adresa.trim() ||
+        null,
       kategoria:
         form.kategoria,
-      cmimi: categoryPrice,
+      cmimi:
+        categoryPrice,
     }
 
     console.log(
@@ -365,7 +395,8 @@ function Members() {
     // ===================================================
 
     if (form.kaPaguar) {
-      const today = new Date()
+      const today =
+        new Date()
 
       const newPayment = {
         organization_id:
@@ -378,9 +409,10 @@ function Members() {
           form.mbiemri.trim(),
         shuma:
           categoryPrice,
-        data: today
-          .toISOString()
-          .split('T')[0],
+        data:
+          today
+            .toISOString()
+            .split('T')[0],
         viti:
           currentYear,
         muaji: null,
@@ -393,7 +425,9 @@ function Members() {
         error: paymentError,
       } = await supabase
         .from('payments')
-        .insert([newPayment])
+        .insert([
+          newPayment,
+        ])
 
       if (paymentError) {
         console.error(
@@ -470,7 +504,17 @@ function Members() {
       return
     }
 
+    if (!organizationId) {
+      alert(
+        'Shoqata nuk u gjet.'
+      )
+
+      return
+    }
+
+    // ===================================================
     // DELETE PAYMENTS
+    // ===================================================
 
     const {
       error: paymentDeleteError,
@@ -493,7 +537,9 @@ function Members() {
       )
     }
 
+    // ===================================================
     // DELETE MEMBER
+    // ===================================================
 
     const {
       error: memberDeleteError,
@@ -631,7 +677,6 @@ function Members() {
   if (loading) {
     return (
       <div className="members-page">
-
         <div className="members-empty">
 
           <div className="empty-icon">
@@ -648,7 +693,6 @@ function Members() {
           </span>
 
         </div>
-
       </div>
     )
   }
@@ -665,18 +709,14 @@ function Members() {
       <div className="members-header">
 
         <div>
-
           <h2>
             Anëtarët
           </h2>
 
           <p>
             Menaxho të gjithë
-            anëtarët e{' '}
-            {organizationName ||
-              'shoqatës'}.
+            anëtarët e shoqatës.
           </p>
-
         </div>
 
         <button
@@ -716,7 +756,9 @@ function Members() {
                 <input
                   type="text"
                   name="emri"
-                  value={form.emri}
+                  value={
+                    form.emri
+                  }
                   onChange={
                     handleChange
                   }
@@ -859,9 +901,7 @@ function Members() {
                   </option>
 
                   {categories.map(
-                    (
-                      category
-                    ) => (
+                    (category) => (
                       <option
                         key={
                           category.name
@@ -908,9 +948,7 @@ function Members() {
                   Pagesa vjetore:{' '}
                   {getCategoryPrice(
                     form.kategoria
-                  ).toFixed(
-                    2
-                  )}{' '}
+                  ).toFixed(2)}{' '}
                   €
                 </strong>
 
@@ -968,9 +1006,7 @@ function Members() {
                 type="button"
                 className="secondary-button"
                 onClick={() =>
-                  setShowForm(
-                    false
-                  )
+                  setShowForm(false)
                 }
               >
                 Mbyll
@@ -1053,8 +1089,7 @@ function Members() {
 
         </div>
 
-        {members.length ===
-        0 ? (
+        {members.length === 0 ? (
 
           <div className="members-empty">
 
@@ -1158,37 +1193,37 @@ function Members() {
                         <td>
                           {
                             member.nr_personal ||
-                              member.nrPersonal ||
-                              '-'
+                            member.nrPersonal ||
+                            '-'
                           }
                         </td>
 
                         <td>
                           {
                             member.nr_librezes ||
-                              member.nrLibrezes ||
-                              '-'
+                            member.nrLibrezes ||
+                            '-'
                           }
                         </td>
 
                         <td>
                           {
                             member.telefoni ||
-                              '-'
+                            '-'
                           }
                         </td>
 
                         <td>
                           {
                             member.adresa ||
-                              '-'
+                            '-'
                           }
                         </td>
 
                         <td>
                           {
                             member.kategoria ||
-                              '-'
+                            '-'
                           }
                         </td>
 
@@ -1223,7 +1258,8 @@ function Members() {
                               {
                                 selectedYear
                               }{' '}
-                              – Pa paguar
+                              –
+                              Pa paguar
                             </span>
 
                           )}
